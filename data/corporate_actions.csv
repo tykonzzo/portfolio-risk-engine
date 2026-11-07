@@ -1,0 +1,7 @@
+ticker,ex_date,action,price_factor,note
+IOC,2022-06-30,Bonus (1:2),0.666667,"Close fell 109.80 -> 74.25 (-32.4%). Factor 1/1.5; residual move after adjustment +1.4%."
+SHRIRAMFIN,2025-01-10,Split (1:5),0.2,"Close fell 2809.85 -> 532.00 (-81.1%). Factor 1/5; residual move after adjustment -5.3%."
+HDFCBANK,2025-08-26,Bonus (1:1),0.5,"Close fell 1964.10 -> 973.40 (-50.4%). Factor 1/2; residual move after adjustment -0.9%."
+TATAINVEST,2025-10-14,Split (1:10),0.1,"Close fell 9922.00 -> 1035.00 (-89.6%). Factor 1/10; residual move after adjustment +4.3%."
+LALPATHLAB,2025-12-19,Bonus (1:1),0.5,"Close fell 2793.60 -> 1391.60 (-50.2%). Factor 1/2; residual move after adjustment -0.4%."
+KOTAKBANK,2026-01-14,Split (5:1),0.2,"Close fell 2132.60 -> 421.00 (-80.3%). Factor 1/5; residual move after adjustment -1.3%."

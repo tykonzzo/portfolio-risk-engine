@@ -1,0 +1,460 @@
+<title>Portfolio Risk Engine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column. Scorecard first, then one panel per question the data answers
+   (growth, drawdown, diversification, risk vs return, weights), then the data notes.
+   Palette: neutrals lean toward the blue series colour; series colours are the validated
+   categorical slots 1-3 (blue, orange, aqua). Type: IBM Plex Sans for text, IBM Plex Mono for figures. */
+:root {
+  --bg: #f4f4f2; --panel: #fcfcfb; --line: #e6e5e1; --line-strong: #d3d2cd;
+  --ink: #0b0b0b; --ink2: #52514e; --muted: #6f6e6a;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --bench: #52514e;
+  --warn-bg: #fff4d6; --warn-ink: #5b4300; --warn-line: #eed58a;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121211; --panel: #1a1a19; --line: #2c2c2a; --line-strong: #3d3d3a;
+    --ink: #f0efec; --ink2: #c3c2b7; --muted: #9a998f;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --bench: #c3c2b7;
+    --warn-bg: #2e2508; --warn-ink: #f1d98a; --warn-line: #5b4a14;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121211; --panel: #1a1a19; --line: #2c2c2a; --line-strong: #3d3d3a;
+  --ink: #f0efec; --ink2: #c3c2b7; --muted: #9a998f;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --bench: #c3c2b7;
+  --warn-bg: #2e2508; --warn-ink: #f1d98a; --warn-line: #5b4a14;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 15px;
+  line-height: 1.55; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 56px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+.eyebrow { margin: 0; font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(28px, 4.4vw, 42px); line-height: 1.08; font-weight: 600;
+  letter-spacing: -.02em; text-wrap: balance; }
+.lede { margin: 0; max-width: 68ch; color: var(--ink2); font-size: 16px; }
+.facts { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.facts li { font-family: var(--font-mono); font-size: 12px; color: var(--ink2);
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 11px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 20px; }
+h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.sub { margin: 4px 0 0; color: var(--ink2); font-size: 13.5px; max-width: 72ch; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 20px; }
+.grid2 > section { min-width: 0; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: right; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 500; color: var(--muted); font-size: 12px; letter-spacing: .02em; }
+td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--font-sans); }
+tbody tr:last-child td { border-bottom: 0; }
+td.best { font-weight: 600; }
+.swatch { display: inline-block; width: 18px; height: 3px; border-radius: 2px; margin-right: 9px;
+  vertical-align: middle; }
+.swatch.dash { background: repeating-linear-gradient(90deg, var(--bench) 0 5px, transparent 5px 8px) !important; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.seg button { font: inherit; font-size: 13px; color: var(--ink2); background: transparent; border: 0;
+  padding: 6px 13px; cursor: pointer; border-right: 1px solid var(--line-strong); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.chart { width: 100%; min-height: 320px; }
+.chart.tall { min-height: 560px; }
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; color: var(--ink2); font-size: 13px; }
+details .tablewrap { max-height: 320px; overflow: auto; margin-top: 8px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.controls label { font-size: 13px; color: var(--ink2); }
+input[type="range"] { flex: 1 1 220px; accent-color: var(--s1); min-width: 0; }
+.mono { font-family: var(--font-mono); font-size: 13px; }
+.notice { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line);
+  border-radius: 8px; padding: 10px 14px; font-size: 13.5px; }
+.notice.ok { background: var(--bg); color: var(--ink2); border-color: var(--line-strong); }
+ul.notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink2); }
+ul.notes b { color: var(--ink); font-weight: 600; }
+@media (max-width: 560px) { section { padding: 16px 14px; } .chart.tall { min-height: 480px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+
+<main class="wrap">
+  <header>
+    <p class="eyebrow">Portfolio construction and risk-return analysis</p>
+    <h1>Portfolio Risk Engine</h1>
+    <p class="lede">A SQL pipeline turns raw NSE price files for 15 stocks into returns, volatility and correlations.
+      Three long-only portfolios are then backtested walk-forward and compared on Sharpe ratio and maximum drawdown.</p>
+    <ul class="facts" id="facts"></ul>
+  </header>
+
+  <section id="s-score">
+    <div>
+      <h2>Scorecard</h2>
+      <p class="sub" id="score-sub"></p>
+    </div>
+    <div class="tablewrap"><table id="score"></table></div>
+  </section>
+
+  <section id="s-nav">
+    <div class="head">
+      <div><h2>Growth of 100</h2><p class="sub">Net of transaction costs. Click a legend entry to hide a line.</p></div>
+      <div class="seg" id="range" role="group" aria-label="Chart window"></div>
+    </div>
+    <div id="nav" class="chart" role="img" aria-label="Line chart of portfolio value over time"></div>
+    <details><summary>View data as a table</summary><div class="tablewrap" id="nav-table"></div></details>
+  </section>
+
+  <section id="s-dd">
+    <div><h2>Drawdowns</h2><p class="sub">Percentage below the previous peak, measured inside the chosen window.</p></div>
+    <div id="dd" class="chart" role="img" aria-label="Line chart of drawdowns over time"></div>
+  </section>
+
+  <div class="grid2">
+    <section id="s-corr">
+      <div><h2>Diversification</h2><p class="sub">Correlation of daily returns for all 105 stock pairs, grouped by sector.</p></div>
+      <div id="corr" class="chart tall" role="img" aria-label="Heatmap of pairwise return correlations"></div>
+    </section>
+    <section id="s-rr">
+      <div><h2>Risk vs return</h2><p class="sub">Each stock over the full period, and the long-only efficient frontier fitted to the same sample. Reference only: it uses hindsight.</p></div>
+      <div id="rr" class="chart tall" role="img" aria-label="Scatter plot of annualised return against volatility"></div>
+      <details><summary>View stock statistics as a table</summary><div class="tablewrap" id="stock-table"></div></details>
+    </section>
+  </div>
+
+  <section id="s-w">
+    <div><h2>Portfolio weights at each rebalance</h2><p class="sub">Weights are set at every month-end close using only data up to that day.</p></div>
+    <div class="controls">
+      <div class="seg" id="wstrat" role="group" aria-label="Strategy"></div>
+      <label for="wdate">Rebalance date <span class="mono" id="wdate-out"></span></label>
+      <input type="range" id="wdate" min="0" max="0" value="0">
+    </div>
+    <div id="w" class="chart" role="img" aria-label="Bar chart of portfolio weights"></div>
+  </section>
+
+  <section id="s-notes">
+    <h2>Data and method notes</h2>
+    <div class="notice" id="gap-note"></div>
+    <ul class="notes" id="notes"></ul>
+    <div class="tablewrap"><table id="ca-table"></table></div>
+  </section>
+</main>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('data').textContent);
+  var MONO = 'IBM Plex Mono, ui-monospace, Menlo, monospace', SANS = 'IBM Plex Sans, system-ui, sans-serif';
+  var LAB = D.meta.labels;
+  var KEYS = ['equal_weight', 'min_variance', 'momentum_tilt'];
+  if (D.nav.benchmark) KEYS.push('benchmark');
+  var state = { range: 'all', wstrat: 'min_variance', widx: null };
+
+  function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function colorOf(k) { return { equal_weight: css('--s1'), min_variance: css('--s2'), momentum_tilt: css('--s3'), benchmark: css('--bench') }[k]; }
+  function isDark() { return css('--bg').toLowerCase() === '#121211'; }
+  function pct(x, d) { return x == null ? '–' : (x * 100).toFixed(d == null ? 1 : d) + '%'; }
+  function num(x, d) { return x == null ? '–' : x.toFixed(d == null ? 2 : d); }
+  function fmtDate(s) { var d = new Date(s + 'T00:00:00Z'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+  function el(id) { return document.getElementById(id); }
+  function narrow() { return window.innerWidth < 600; }
+
+  function base() {
+    return {
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      font: { family: SANS, color: css('--ink2'), size: 12 },
+      margin: { l: 56, r: 16, t: 10, b: 40 },
+      xaxis: { gridcolor: css('--line'), zerolinecolor: css('--line'), linecolor: css('--line-strong'), tickfont: { family: MONO, size: 11 }, fixedrange: true },
+      yaxis: { gridcolor: css('--line'), zerolinecolor: css('--line-strong'), linecolor: 'rgba(0,0,0,0)', tickfont: { family: MONO, size: 11 }, fixedrange: true },
+      legend: { orientation: 'h', x: 0, y: 1.08, yanchor: 'bottom', font: { size: 12, color: css('--ink2') } },
+      hoverlabel: { bgcolor: css('--panel'), bordercolor: css('--line-strong'), font: { family: MONO, size: 12, color: css('--ink') } },
+      hovermode: 'x unified'
+    };
+  }
+  var CFG = { displayModeBar: false, responsive: true };
+
+  // ---------- header and scorecard
+  function renderStatic() {
+    var m = D.meta, ing = m.ingest;
+    el('facts').innerHTML = [
+      ing.rows_final.toLocaleString('en-US') + ' daily price rows',
+      ing.stocks + ' NSE stocks',
+      m.panel_trading_days.toLocaleString('en-US') + ' aligned trading days',
+      fmtDate(D.dates[0]) + ' to ' + fmtDate(D.dates[D.dates.length - 1]) + ' out-of-sample'
+    ].map(function (t) { return '<li>' + t + '</li>'; }).join('');
+
+    var c = m.config;
+    el('score-sub').textContent = 'Out-of-sample period ' + fmtDate(D.dates[0]) + ' to ' + fmtDate(D.dates[D.dates.length - 1]) +
+      '. The first ' + c.lookback + ' trading days are used only as history. Monthly rebalance, ' + c.cost_bps +
+      ' bps one-way cost, risk-free rate ' + (c.rf * 100).toFixed(1) + '%.';
+
+    var cols = [['total_return', 'Total return', function (v) { return pct(v); }, 1],
+                ['cagr', 'CAGR', function (v) { return pct(v); }, 1],
+                ['ann_vol', 'Volatility', function (v) { return pct(v); }, -1],
+                ['sharpe', 'Sharpe', function (v) { return num(v); }, 1],
+                ['max_drawdown', 'Max drawdown', function (v) { return pct(v); }, 1],
+                ['calmar', 'Calmar', function (v) { return num(v); }, 1],
+                ['avg_annual_turnover', 'Turnover / yr', function (v) { return v == null ? '–' : pct(v, 0); }, 0]];
+    var rows = D.metrics.filter(function (r) { return KEYS.indexOf(r.key) >= 0; });
+    var best = {};
+    cols.forEach(function (cdef) {
+      if (!cdef[3]) return;
+      var vals = rows.map(function (r) { return r[cdef[0]]; });
+      var pick = cdef[3] === 1 ? Math.max.apply(null, vals.filter(function (v) { return v != null; })) : Math.min.apply(null, vals);
+      best[cdef[0]] = pick;
+    });
+    var h = '<thead><tr><th>Strategy</th>' + cols.map(function (cdef) { return '<th>' + cdef[1] + '</th>'; }).join('') + '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      h += '<tr><td><span class="swatch' + (r.key === 'benchmark' ? ' dash' : '') + '" style="background:' + colorOf(r.key) + '"></span>' + LAB[r.key] + '</td>';
+      cols.forEach(function (cdef) {
+        var v = r[cdef[0]];
+        h += '<td class="' + (cdef[3] && v === best[cdef[0]] ? 'best' : '') + '">' + cdef[2](v) + '</td>';
+      });
+      h += '</tr>';
+    });
+    el('score').innerHTML = h + '</tbody>';
+    if (!D.nav.benchmark) {
+      el('score-sub').textContent += ' No Nifty 50 file was supplied, so there is no index benchmark yet.';
+    }
+  }
+
+  // ---------- windowing for the time-series charts
+  function startIndex() {
+    var yrs = { all: null, '3y': 3, '2y': 2, '1y': 1 }[state.range];
+    if (!yrs) return 0;
+    var last = new Date(D.dates[D.dates.length - 1] + 'T00:00:00Z');
+    last.setUTCFullYear(last.getUTCFullYear() - yrs);
+    var cut = last.toISOString().slice(0, 10);
+    for (var i = 0; i < D.dates.length; i++) if (D.dates[i] >= cut) return i;
+    return 0;
+  }
+  function gapShape() {
+    var g = D.meta.gap_return_dates[0];
+    if (!g) return { shapes: [], annotations: [], start: null, end: null };
+    var end = new Date(g.trade_date + 'T00:00:00Z');
+    var start = new Date(end.getTime() - g.gap_days * 86400000);
+    var s = start.toISOString().slice(0, 10);
+    return {
+      start: s, end: g.trade_date,
+      shapes: [{ type: 'rect', xref: 'x', yref: 'paper', x0: s, x1: g.trade_date, y0: 0, y1: 1, fillcolor: css('--line'), opacity: 0.8, line: { width: 0 }, layer: 'below' }],
+      annotations: [{ xref: 'x', yref: 'paper', x: s, y: 1, xanchor: 'left', yanchor: 'top', showarrow: false, text: 'Tata Investment<br>data gap', font: { size: 10, color: css('--muted') }, xshift: 4, yshift: -4 }]
+    };
+  }
+
+  function renderNav() {
+    var i0 = startIndex(), dates = D.dates.slice(i0), g = gapShape();
+    var traces = KEYS.map(function (k) {
+      var arr = D.nav[k].slice(i0), b = arr[0];
+      var y = arr.map(function (v) { return v / b * 100; });
+      return { x: dates, y: y, name: LAB[k], type: 'scatter', mode: 'lines',
+        line: { color: colorOf(k), width: 2, dash: k === 'benchmark' ? 'dash' : 'solid' },
+        hovertemplate: '%{y:.1f}' };
+    });
+    var lay = base();
+    lay.shapes = g.shapes;
+    var ann = g.annotations.slice();
+    if (!narrow()) {
+      lay.margin.r = 128;
+      var ends = KEYS.map(function (k, j) { return { k: k, y: traces[j].y[traces[j].y.length - 1] }; }).sort(function (a, b) { return a.y - b.y; });
+      var all = [].concat.apply([], traces.map(function (t) { return t.y; }));
+      var range = Math.max.apply(null, all) - Math.min.apply(null, all);
+      var minGap = range * 0.085, prev = null;   // about 18px of a 320px chart, so labels never touch
+      ends.forEach(function (e) {
+        var yy = prev === null || e.y - prev >= minGap ? e.y : prev + minGap;
+        prev = yy;
+        ann.push({ xref: 'paper', x: 1, xanchor: 'left', xshift: 8, yref: 'y', y: yy, showarrow: false,
+          text: LAB[e.k] + ' ' + e.y.toFixed(0), font: { size: 11, color: css('--ink') } });
+      });
+    }
+    lay.annotations = ann;
+    lay.yaxis.title = { text: 'Value of 100 invested', font: { size: 11 } };
+    Plotly.react('nav', traces, lay, CFG);
+
+    // table view: month-end values
+    var rows = '', last = '';
+    for (var i = i0; i < D.dates.length; i++) {
+      var ym = D.dates[i].slice(0, 7), nxt = i + 1 < D.dates.length ? D.dates[i + 1].slice(0, 7) : null;
+      if (ym !== nxt) {
+        rows += '<tr><td>' + D.dates[i] + '</td>' + KEYS.map(function (k) { return '<td>' + (D.nav[k][i] / D.nav[k][i0] * 100).toFixed(1) + '</td>'; }).join('') + '</tr>';
+      }
+    }
+    el('nav-table').innerHTML = '<table><thead><tr><th>Month end</th>' + KEYS.map(function (k) { return '<th>' + LAB[k] + '</th>'; }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function renderDD() {
+    var i0 = startIndex(), dates = D.dates.slice(i0), g = gapShape();
+    var gi = g.end ? dates.indexOf(g.end) : -1;
+    var traces = KEYS.map(function (k) {
+      var arr = D.nav[k].slice(i0), peak = -Infinity, y = arr.map(function (v) { peak = Math.max(peak, v); return (v / peak - 1) * 100; });
+      var x = dates.slice();
+      if (gi > 0) { x.splice(gi, 0, g.start); y.splice(gi, 0, null); }   // break the line: drawdown inside the gap is unobservable
+      return { x: x, y: y, name: LAB[k], type: 'scatter', mode: 'lines', connectgaps: false,
+        line: { color: colorOf(k), width: 1.8, dash: k === 'benchmark' ? 'dash' : 'solid' }, hovertemplate: '%{y:.1f}%' };
+    });
+    var lay = base();
+    lay.shapes = g.shapes; lay.annotations = g.annotations;
+    lay.yaxis.ticksuffix = '%';
+    lay.yaxis.title = { text: 'Below peak', font: { size: 11 } };
+    Plotly.react('dd', traces, lay, CFG);
+  }
+
+  // ---------- correlation heatmap
+  function renderCorr() {
+    var t = D.corr.tickers, sec = D.sectors;
+    var order = t.slice().sort(function (a, b) { return sec[a] < sec[b] ? -1 : sec[a] > sec[b] ? 1 : a < b ? -1 : 1; });
+    var pos = order.map(function (x) { return t.indexOf(x); });
+    var z = pos.map(function (i, r) { return pos.map(function (j, c) { return r === c ? null : D.corr.matrix[i][j]; }); });
+    var light = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+    var dark = ['#0d366b', '#104281', '#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'];
+    var ramp = (isDark() ? dark : light).map(function (c, i) { return [i / 6, c]; });
+    var ann = [];
+    z.forEach(function (row, r) { row.forEach(function (v, c) {
+      if (v == null) return;
+      var hi = v > 0.34, txt = isDark() ? (hi ? '#0b0b0b' : '#f0efec') : (hi ? '#fcfcfb' : '#0b0b0b');
+      ann.push({ x: order[c], y: order[r], text: v.toFixed(2), showarrow: false, font: { size: narrow() ? 7 : 9, color: txt, family: MONO } });
+    }); });
+    var lay = base();
+    lay.hovermode = 'closest';
+    lay.margin = { l: 92, r: 10, t: 6, b: 92 };
+    lay.xaxis = { tickangle: -50, tickfont: { size: 10 }, fixedrange: true, showgrid: false, side: 'bottom' };
+    lay.yaxis = { autorange: 'reversed', tickfont: { size: 10 }, fixedrange: true, showgrid: false };
+    lay.annotations = ann;
+    var tr = { type: 'heatmap', x: order, y: order, z: z, zmin: 0, zmax: 0.7, colorscale: ramp, xgap: 1, ygap: 1,
+      hoverongaps: false, showscale: false, hovertemplate: '%{y} and %{x}<br>correlation %{z:.2f}<extra></extra>' };
+    Plotly.react('corr', [tr], lay, CFG);
+  }
+
+  // ---------- risk vs return
+  var OFF = { TATAINVEST: [-10, 18], BHEL: [12, -16], SHRIRAMFIN: [-8, 18], VEDL: [12, 16], SUNPHARMA: [-14, 14],
+              LT: [6, 32], SBIN: [24, 16], 'BAJAJ-AUTO': [-32, -18], UNITDSPR: [4, -26], HDFCBANK: [-14, 14], HINDUNILVR: [-10, -16] };
+  function renderRR() {
+    var S = D.stocks, fr = D.frontier, mv = D.insample_minvar;
+    var traces = [
+      { x: fr.map(function (p) { return p.vol * 100; }), y: fr.map(function (p) { return p.ret * 100; }), type: 'scatter', mode: 'lines',
+        name: 'Efficient frontier (in-sample)', line: { color: css('--s2'), width: 2 }, hoverinfo: 'skip' },
+      { x: S.map(function (s) { return s.ann_vol * 100; }), y: S.map(function (s) { return s.ann_mean_return * 100; }), type: 'scatter', mode: 'markers',
+        name: 'Stocks', marker: { color: css('--s1'), size: 10, line: { color: css('--panel'), width: 1.5 } },
+        customdata: S.map(function (s) { return [s.ticker, s.sector, s.cagr * 100, s.max_drawdown * 100, s.sharpe_arith]; }),
+        hovertemplate: '<b>%{customdata[0]}</b> %{customdata[1]}<br>Mean return %{y:.1f}%<br>Volatility %{x:.1f}%<br>CAGR %{customdata[2]:.1f}%<br>Max drawdown %{customdata[3]:.1f}%<br>Sharpe %{customdata[4]:.2f}<extra></extra>' },
+      { x: [mv.vol * 100], y: [mv.ret * 100], type: 'scatter', mode: 'markers', name: 'Min-variance (in-sample)',
+        marker: { color: css('--s2'), size: 13, symbol: 'diamond', line: { color: css('--panel'), width: 1.5 } },
+        hovertemplate: 'In-sample minimum variance<br>Return %{y:.1f}%, volatility %{x:.1f}%<extra></extra>' }
+    ];
+    var k = 1.33;
+    var ann = S.map(function (s) {
+      var o = OFF[s.ticker] || [7, 4], far = Math.abs(o[0]) > 10 || Math.abs(o[1]) > 10;
+      var a = { x: s.ann_vol * 100, y: s.ann_mean_return * 100, text: s.ticker, font: { size: 10, color: css('--ink2') }, xref: 'x', yref: 'y' };
+      if (far) { a.showarrow = true; a.arrowhead = 0; a.arrowwidth = 0.7; a.arrowcolor = css('--muted'); a.ax = o[0] * k; a.ay = -o[1] * k; a.standoff = 4;
+                 a.xanchor = o[0] < 0 ? 'right' : 'left'; a.yanchor = 'middle'; }
+      else { a.showarrow = false; a.xanchor = 'left'; a.yanchor = 'bottom'; a.xshift = 8; a.yshift = 2; }
+      return a;
+    });
+    var lay = base();
+    lay.hovermode = 'closest';
+    lay.margin = { l: 52, r: 16, t: 10, b: 48 };
+    lay.annotations = ann;
+    lay.xaxis.title = { text: 'Annualised volatility', font: { size: 11 } }; lay.xaxis.ticksuffix = '%';
+    lay.yaxis.title = { text: 'Annualised mean return', font: { size: 11 } }; lay.yaxis.ticksuffix = '%';
+    lay.legend = { orientation: 'h', x: 0, y: -0.14, yanchor: 'top', font: { size: 11, color: css('--ink2') } };
+    Plotly.react('rr', traces, lay, CFG);
+  }
+  function renderStockTable() {
+    var rows = D.stocks.map(function (s) {
+      return '<tr><td>' + s.ticker + '</td><td style="font-family:var(--font-sans)">' + s.sector + '</td><td>' + pct(s.cagr) + '</td><td>' + pct(s.ann_mean_return) + '</td><td>' + pct(s.ann_vol) + '</td><td>' + pct(s.max_drawdown) + '</td><td>' + num(s.sharpe_arith) + '</td></tr>';
+    }).join('');
+    el('stock-table').innerHTML = '<table><thead><tr><th>Ticker</th><th>Sector</th><th>CAGR</th><th>Mean return</th><th>Volatility</th><th>Max drawdown</th><th>Sharpe</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  // ---------- weights
+  function renderW() {
+    var W = D.weights[state.wstrat], i = state.widx == null ? W.dates.length - 1 : state.widx;
+    var sl = el('wdate'); sl.max = W.dates.length - 1; sl.value = i;
+    el('wdate-out').textContent = fmtDate(W.dates[i]);
+    var pairs = W.tickers.map(function (t, j) { return [t, W.w[i][j] * 100]; }).sort(function (a, b) { return a[1] - b[1]; });
+    var tr = { type: 'bar', orientation: 'h', x: pairs.map(function (p) { return p[1]; }), y: pairs.map(function (p) { return p[0]; }),
+      marker: { color: colorOf(state.wstrat) }, text: pairs.map(function (p) { return p[1].toFixed(1) + '%'; }), textposition: 'outside',
+      cliponaxis: false, textfont: { family: MONO, size: 11, color: css('--ink2') }, hovertemplate: '%{y}: %{x:.1f}%<extra></extra>' };
+    var lay = base();
+    lay.hovermode = 'closest'; lay.bargap = 0.35;
+    lay.margin = { l: 92, r: 48, t: 6, b: 34 };
+    lay.xaxis.range = [0, 32]; lay.xaxis.ticksuffix = '%';
+    lay.yaxis.gridcolor = 'rgba(0,0,0,0)'; lay.yaxis.tickfont = { size: 11, family: MONO };
+    lay.height = 440;
+    Plotly.react('w', [tr], lay, CFG);
+  }
+
+  // ---------- notes
+  function renderNotes() {
+    var m = D.meta, ing = m.ingest, c = m.config, g = m.gap_return_dates[0];
+    if (g) {
+      el('gap-note').innerHTML = '<b>Data gap.</b> One stock has a hole in its price history, so ' + m.excluded_non_common_days +
+        ' trading days are dropped for all 15 stocks to keep one common calendar. The one return that spans the gap (' + g.gap_days +
+        ' calendar days) stays in portfolio value but is left out of volatility, correlation and Sharpe. Drawdown inside the gap cannot be observed, so reported maximum drawdowns are slightly optimistic.';
+    } else {
+      el('gap-note').className = 'notice ok';
+      el('gap-note').innerHTML = '<b>Complete calendar.</b> All 15 stocks have a price on all ' + m.panel_trading_days.toLocaleString('en-US') +
+        ' trading days. Tata Investment traded in NSE\u2019s trade-for-trade (BE) series from 29 Feb to 31 May 2024, which an EQ-only export omits (' +
+        ing.rows_be_series + ' days). Those days come from NSE\u2019s official daily bhavcopy; 2 of them (2 Mar and 26 Mar 2024) are closing prices taken from the next session\u2019s previous-close field.';
+    }
+    var n = [
+      '<b>Source.</b> ' + ing.files_read + ' CSV files in NSE format. ' + ing.rows_read.toLocaleString('en-US') + ' rows read, ' + ing.rows_dropped_non_regular_series + ' block-deal rows and ' +
+        ing.rows_dropped_duplicate_day.toLocaleString('en-US') + ' duplicate days removed, ' + ing.rows_final.toLocaleString('en-US') + ' rows kept.',
+      '<b>Corporate actions.</b> Prices are back-adjusted for the six splits and bonuses below. Unadjusted, they would show false one-day crashes of 32% to 90%.',
+      '<b>Strategies.</b> Equal-weight holds 1/15 of each stock. Minimum-variance minimises portfolio variance on the trailing ' + c.lookback + ' days with a ' + (c.max_weight * 100).toFixed(0) +
+        '% cap per stock. Momentum-tilted starts from equal weights and gives 1.5x to the top third and 0.5x to the bottom third by 12-month return, skipping the latest month.',
+      '<b>Sharpe ratio.</b> (CAGR minus ' + (c.rf * 100).toFixed(1) + '% risk-free) divided by annualised volatility of daily returns.',
+      '<b>Not included.</b> Dividends (price returns only), taxes and market impact.'
+    ];
+    el('notes').innerHTML = n.map(function (t) { return '<li>' + t + '</li>'; }).join('');
+    el('ca-table').innerHTML = '<thead><tr><th>Stock</th><th>Ex-date</th><th>Action</th><th>Price factor</th></tr></thead><tbody>' +
+      m.corporate_actions.map(function (a) { return '<tr><td>' + a.ticker + '</td><td>' + a.ex_date.slice(0, 10) + '</td><td style="font-family:var(--font-sans)">' + a.action + '</td><td>' + Number(a.price_factor).toFixed(4) + '</td></tr>'; }).join('') + '</tbody>';
+  }
+
+  // ---------- controls
+  function buildControls() {
+    var rg = el('range');
+    [['all', 'Full period'], ['3y', '3Y'], ['2y', '2Y'], ['1y', '1Y']].forEach(function (p) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1]; b.dataset.v = p[0];
+      b.setAttribute('aria-pressed', p[0] === state.range ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        state.range = p[0];
+        Array.prototype.forEach.call(rg.children, function (x) { x.setAttribute('aria-pressed', x.dataset.v === state.range ? 'true' : 'false'); });
+        renderNav(); renderDD();
+      });
+      rg.appendChild(b);
+    });
+    var ws = el('wstrat');
+    [['min_variance', 'Minimum-variance'], ['momentum_tilt', 'Momentum-tilted']].forEach(function (p) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1]; b.dataset.v = p[0];
+      b.setAttribute('aria-pressed', p[0] === state.wstrat ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        state.wstrat = p[0];
+        Array.prototype.forEach.call(ws.children, function (x) { x.setAttribute('aria-pressed', x.dataset.v === state.wstrat ? 'true' : 'false'); });
+        renderW();
+      });
+      ws.appendChild(b);
+    });
+    el('wdate').addEventListener('input', function (e) { state.widx = +e.target.value; renderW(); });
+  }
+
+  function renderAll() { renderStatic(); renderNav(); renderDD(); renderCorr(); renderRR(); renderW(); }
+  buildControls(); renderNotes(); renderStockTable(); renderAll();
+  var t; function again() { clearTimeout(t); t = setTimeout(renderAll, 120); }
+  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', again);
+  new MutationObserver(again).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  window.addEventListener('resize', again);
+})();
+</script>

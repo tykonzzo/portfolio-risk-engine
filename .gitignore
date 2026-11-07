@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.DS_Store
+# rebuilt by run_pipeline.py in a few seconds
+outputs/risk_engine.db
