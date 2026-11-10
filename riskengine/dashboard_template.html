@@ -85,6 +85,7 @@ input[type="range"] { flex: 1 1 220px; accent-color: var(--s1); min-width: 0; }
 .notice { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line);
   border-radius: 8px; padding: 10px 14px; font-size: 13.5px; }
 .notice.ok { background: var(--bg); color: var(--ink2); border-color: var(--line-strong); }
+.footer { margin: 0; text-align: center; color: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
 ul.notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--ink2); }
 ul.notes b { color: var(--ink); font-weight: 600; }
 @media (max-width: 560px) { section { padding: 16px 14px; } .chart.tall { min-height: 480px; } }
@@ -100,6 +101,8 @@ ul.notes b { color: var(--ink); font-weight: 600; }
       Three long-only portfolios are then backtested walk-forward and compared on Sharpe ratio and maximum drawdown.</p>
     <ul class="facts" id="facts"></ul>
   </header>
+
+  <div class="notice" id="status" role="alert" hidden></div>
 
   <section id="s-score">
     <div>
@@ -151,6 +154,7 @@ ul.notes b { color: var(--ink); font-weight: 600; }
     <ul class="notes" id="notes"></ul>
     <div class="tablewrap"><table id="ca-table"></table></div>
   </section>
+  <p class="footer" id="build">Dashboard build __BUILD__</p>
 </main>
 
 <script id="data" type="application/json">__DATA__</script>
@@ -455,8 +459,21 @@ ul.notes b { color: var(--ink); font-weight: 600; }
     el('wdate').addEventListener('input', function (e) { state.widx = +e.target.value; renderW(); });
   }
 
-  function renderAll() { renderStatic(); renderNav(); renderDD(); renderCorr(); renderRR(); renderW(); }
-  buildControls(); renderNotes(); renderStockTable(); renderAll();
+  // Every block runs on its own, so one failure never blanks the rest, and failures are shown on the page.
+  var problems = [];
+  function safe(fn, name) { try { fn(); } catch (e) { problems.push(name + ': ' + (e && e.message || e)); } }
+  function renderAll() {
+    problems = [];
+    safe(renderStatic, 'scorecard');
+    if (typeof Plotly === 'undefined') {
+      problems.push('The charting library did not load, so the charts are hidden. The tables still work. Reload the page, or check that a content blocker or network filter is not blocking scripts.');
+    } else {
+      safe(renderNav, 'growth chart'); safe(renderDD, 'drawdown chart'); safe(renderCorr, 'correlation chart');
+      safe(renderRR, 'risk-return chart'); safe(renderW, 'weights chart');
+    }
+    var st = el('status'); st.hidden = problems.length === 0; st.textContent = problems.join('  |  ');
+  }
+  safe(buildControls, 'controls'); safe(renderNotes, 'notes'); safe(renderStockTable, 'stock table'); renderAll();
   var t; function again() { clearTimeout(t); t = setTimeout(renderAll, 120); }
   if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', again);
   new MutationObserver(again).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });

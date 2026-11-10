@@ -4,6 +4,7 @@ docs/index.html is a plain static page: open it locally or serve it with GitHub 
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -21,13 +22,15 @@ HEAD = """<!doctype html>
 TAIL = "\n</body>\n</html>\n"
 
 # cdnjs lists plotly.js 2.35.2 with no files (404), so load the same build from jsDelivr.
+LOCAL_PLOTLY = "vendor/plotly-2.35.2.min.js"
 PLOTLY_URL = "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
 
 
-def fragment(results_json: str, plotly_src: str | None = None) -> str:
+def fragment(results_json: str, plotly_src: str | None = None, build_stamp: str | None = None) -> str:
     """Page body + styles + scripts (no doctype). `plotly_src` overrides the CDN URL for offline tests."""
     html = TEMPLATE.read_text()
     html = html.replace("__DATA__", results_json.replace("</", "<\\/"))
+    html = html.replace("__BUILD__", build_stamp or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
     assert PLOTLY_URL in html, "dashboard template no longer loads the expected Plotly build"
     if plotly_src:
         html = html.replace(PLOTLY_URL, plotly_src)
@@ -35,7 +38,9 @@ def fragment(results_json: str, plotly_src: str | None = None) -> str:
 
 
 def build(results_path: Path = ROOT / "outputs/results.json", out: Path = ROOT / "docs/index.html") -> Path:
-    page = HEAD + fragment(Path(results_path).read_text()) + TAIL
+    # GitHub Pages serves its own copy of Plotly (same origin), so the page never depends on a third-party CDN.
+    assert (out.parent / LOCAL_PLOTLY).exists(), f"missing {out.parent / LOCAL_PLOTLY}"
+    page = HEAD + fragment(Path(results_path).read_text(), plotly_src=LOCAL_PLOTLY) + TAIL
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page)
     return out

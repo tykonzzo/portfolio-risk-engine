@@ -250,3 +250,13 @@ def test_dashboard_loads_plotly_from_a_host_that_serves_it():
     assert sd.PLOTLY_URL.startswith("https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/")
     assert f'<script src="{sd.PLOTLY_URL}"></script>' in html
     assert "cdnjs.cloudflare.com/ajax/libs/plotly.js" not in html
+
+
+def test_github_pages_page_serves_its_own_plotly_and_reports_failures():
+    """docs/index.html must not depend on a third-party CDN, and must show errors on the page."""
+    page = (ROOT / "docs/index.html").read_text()
+    local = ROOT / "docs/vendor/plotly-2.35.2.min.js"
+    assert '<script src="vendor/plotly-2.35.2.min.js"></script>' in page
+    assert local.exists() and local.stat().st_size > 3_000_000
+    assert local.read_text(errors="ignore").lstrip().startswith("/**\n* plotly.js v2.35.2")
+    assert 'id="status"' in page and "Dashboard build 20" in page
