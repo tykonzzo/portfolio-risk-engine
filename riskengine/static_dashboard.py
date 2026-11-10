@@ -20,13 +20,17 @@ HEAD = """<!doctype html>
 """
 TAIL = "\n</body>\n</html>\n"
 
+# cdnjs lists plotly.js 2.35.2 with no files (404), so load the same build from jsDelivr.
+PLOTLY_URL = "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"
+
 
 def fragment(results_json: str, plotly_src: str | None = None) -> str:
     """Page body + styles + scripts (no doctype). `plotly_src` overrides the CDN URL for offline tests."""
     html = TEMPLATE.read_text()
     html = html.replace("__DATA__", results_json.replace("</", "<\\/"))
+    assert PLOTLY_URL in html, "dashboard template no longer loads the expected Plotly build"
     if plotly_src:
-        html = html.replace("https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js", plotly_src)
+        html = html.replace(PLOTLY_URL, plotly_src)
     return html
 
 

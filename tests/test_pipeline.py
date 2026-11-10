@@ -241,3 +241,12 @@ def test_benchmark_metrics_are_sensible(env):
     b = b / b.iloc[0]
     m = bt.performance(navs["equal_weight"], env["gap"], cfg.rf, turns["equal_weight"], b)
     assert 0.6 < m["beta"] < 1.3 and 0.5 < m["correlation_to_benchmark"] < 1.0
+
+
+def test_dashboard_loads_plotly_from_a_host_that_serves_it():
+    """cdnjs lists plotly.js 2.35.2 with zero files (404), which left the live charts blank."""
+    from riskengine import static_dashboard as sd
+    html = sd.fragment((ROOT / "outputs/results.json").read_text())
+    assert sd.PLOTLY_URL.startswith("https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/")
+    assert f'<script src="{sd.PLOTLY_URL}"></script>' in html
+    assert "cdnjs.cloudflare.com/ajax/libs/plotly.js" not in html
