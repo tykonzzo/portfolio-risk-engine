@@ -46,7 +46,7 @@ def _gap_band(ax, res, bottom=False):
     ax.axvspan(start, end, color="#e6e5e1", alpha=0.7, lw=0)
     lo, hi = ax.get_ylim()
     y = (lo + hi) / 2 if bottom else hi
-    ax.text(start + (end - start) / 2, y, "Tata Investment\ndata gap\n(no daily prices)",
+    ax.text(start + (end - start) / 2, y, "Data gap\n(no daily prices)",
             ha="center", va="center" if bottom else "top", fontsize=7.5, color=INK2)
 
 

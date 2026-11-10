@@ -79,7 +79,7 @@ for f in (fig, dd):
     if gap:
         end = pd.Timestamp(gap[0]["trade_date"])
         f.add_vrect(x0=end - pd.Timedelta(days=int(gap[0]["gap_days"])), x1=end, fillcolor="grey", opacity=0.15,
-                    line_width=0, annotation_text="Tata Investment data gap", annotation_position="top left")
+                    line_width=0, annotation_text="Data gap", annotation_position="top left")
     f.update_layout(hovermode="x unified", margin=dict(l=10, r=10, t=30, b=10), legend=dict(orientation="h", y=1.1))
 fig.update_yaxes(title="Value of 100 invested")
 dd.update_yaxes(title="Below peak (%)")
@@ -131,9 +131,9 @@ st.plotly_chart(b, width="stretch")
 with st.expander("Data and method notes", expanded=False):
     q = R["meta"]
     st.markdown(
-        f"- **Gap:** Tata Investment has no prices from 29 Feb to 31 May 2024 ({q['excluded_non_common_days']} trading days). "
-        "Those days are dropped for every stock; the one return spanning the gap stays in portfolio value but is excluded "
-        "from volatility, correlation and Sharpe.\n"
+        + (f"- **Gap:** {', '.join(q['tickers_with_missing_days']) or 'One stock'} is missing {q['excluded_non_common_days']} trading days "
+           f"(around {q['gap_return_dates'][0]['trade_date']}). Those days are dropped for every stock; the one return spanning the gap "
+           "stays in portfolio value but is excluded from volatility, correlation and Sharpe.\n" if q["gap_return_dates"] else "- **Gap:** none. Every stock has every trading day.\n") +
         "- **Prices** are back-adjusted for six splits and bonuses (table below). Dividends are not included.\n"
         "- **Sharpe** = (CAGR - risk-free) / annualised volatility of daily returns.")
     st.dataframe(pd.DataFrame(q["corporate_actions"]), width="stretch", hide_index=True)

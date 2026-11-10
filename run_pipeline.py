@@ -101,6 +101,10 @@ def main(argv: list[str] | None = None) -> dict:
         "panel_last": px.index[-1].strftime("%Y-%m-%d"),
         "excluded_non_common_days": int(prices["trade_date"].nunique() - len(px)),
         "gap_return_dates": gap_rows.to_dict("records"),
+        "tickers_with_missing_days": {
+            t: int(prices["trade_date"].nunique() - n)
+            for t, n in prices.groupby("ticker")["trade_date"].nunique().items()
+            if n < prices["trade_date"].nunique()},
         "corporate_actions": actions.to_dict("records"),
         "unique_correlation_pairs": int(len(pairs)),
         "benchmark_present": bench is not None,

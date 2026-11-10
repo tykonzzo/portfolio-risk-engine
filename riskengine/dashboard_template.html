@@ -250,7 +250,7 @@ ul.notes b { color: var(--ink); font-weight: 600; }
     return {
       start: s, end: g.trade_date,
       shapes: [{ type: 'rect', xref: 'x', yref: 'paper', x0: s, x1: g.trade_date, y0: 0, y1: 1, fillcolor: css('--line'), opacity: 0.8, line: { width: 0 }, layer: 'below' }],
-      annotations: [{ xref: 'x', yref: 'paper', x: s, y: 1, xanchor: 'left', yanchor: 'top', showarrow: false, text: 'Tata Investment<br>data gap', font: { size: 10, color: css('--muted') }, xshift: 4, yshift: -4 }]
+      annotations: [{ xref: 'x', yref: 'paper', x: s, y: 1, xanchor: 'left', yanchor: 'top', showarrow: false, text: 'Data gap', font: { size: 10, color: css('--muted') }, xshift: 4, yshift: -4 }]
     };
   }
 
@@ -400,9 +400,14 @@ ul.notes b { color: var(--ink); font-weight: 600; }
   function renderNotes() {
     var m = D.meta, ing = m.ingest, c = m.config, g = m.gap_return_dates[0];
     if (g) {
-      el('gap-note').innerHTML = '<b>Data gap.</b> One stock has a hole in its price history, so ' + m.excluded_non_common_days +
-        ' trading days are dropped for all 15 stocks to keep one common calendar. The one return that spans the gap (' + g.gap_days +
+      if (!g) { el('gap-note').hidden = true; }
+    else {
+      var gs = new Date(new Date(g.trade_date + 'T00:00:00Z').getTime() - g.gap_days * 86400000).toISOString().slice(0, 10);
+      var names = Object.keys(m.tickers_with_missing_days || {}).join(', ') || 'One stock';
+      el('gap-note').innerHTML = '<b>Data gap.</b> ' + names + ' has no prices between ' + fmtDate(gs) + ' and ' + fmtDate(g.trade_date) + ' (' + m.excluded_non_common_days +
+        ' trading days). Those days are dropped for all 15 stocks so every portfolio uses the same calendar. The one return that spans the gap (' + g.gap_days +
         ' calendar days) stays in portfolio value but is left out of volatility, correlation and Sharpe. Drawdown inside the gap cannot be observed, so reported maximum drawdowns are slightly optimistic.';
+    }
     } else {
       el('gap-note').className = 'notice ok';
       el('gap-note').innerHTML = '<b>Complete calendar.</b> All 15 stocks have a price on all ' + m.panel_trading_days.toLocaleString('en-US') +

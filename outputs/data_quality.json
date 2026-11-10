@@ -32,6 +32,7 @@
   "panel_last": "2026-03-30",
   "excluded_non_common_days": 0,
   "gap_return_dates": [],
+  "tickers_with_missing_days": {},
   "corporate_actions": [
     {
       "ticker": "IOC",
